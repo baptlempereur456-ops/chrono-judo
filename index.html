@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau d'affichage Judo - Officiel Plein Écran</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --white-side: #ffffff;
+            --blue-side: #0022aa;
+            --ijf-yellow: #ffdf00;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: white;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- MODE CONTROLE (PC) --- */
+        #control-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+            gap: 10px;
+        }
+
+        .fighter-control {
+            border: 5px solid;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            padding: 15px;
+        }
+
+        .white-ctrl { border-color: var(--white-side); background: #222; }
+        .blue-ctrl { border-color: var(--blue-side); background: #001133; }
+
+        .btn-group { display: flex; gap: 10px; }
+
+        button, select {
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+
+        .btn-score { padding: 20px 30px; font-size: 1.4rem; }
+        .btn-ippon { background-color: var(--ijf-yellow); color: black; }
+        .btn-waza { background-color: #ff9900; color: white; }
+        .btn-shido { background-color: #cc0000; color: white; }
+        .btn-reset { background-color: #555; color: white; padding: 10px; }
+
+        #timer-controls {
+            grid-column: span 2;
+            background: #222;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .select-age {
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            background-color: #333;
+            color: white;
+            border: 2px solid #555;
+            border-radius: 5px;
+        }
+
+        #pc-chrono {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ffff00;
+            font-family: monospace;
+            background: #000;
+            padding: 5px 30px;
+            border-radius: 8px;
+            border: 2px solid #444;
+        }
+
+        .btn-timer { padding: 12px 30px; font-size: 1.3rem; background-color: #28a745; color: white;}
+        .btn-pause { background-color: #dc3545; }
+        .btn-tv { background-color: #17a2b8; }
+
+        /* --- MODE TV (PLEIN ÉCRAN) --- */
+        #tv-panel {
+            display: none; 
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: var(--bg-color);
+            grid-template-rows: 42fr 42fr 16fr;
+            box-sizing: border-box;
+        }
+
+        .tv-active #tv-panel { display: grid; }
+        .tv-active #control-panel { display: none; }
+
+        .fighter-row {
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding: 0 5vw;
+        }
+        
+        .row-white { 
+            background-color: #ffffff; 
+            border-bottom: 2px solid #ddd; 
+        }
+        
+        .row-blue { 
+            background-color: #000d26; 
+            border-bottom: 2px solid #111; 
+        }
+
+        .color-indicator {
+            width: 4vw;
+            height: 50%;
+            border-radius: 8px;
+            margin-right: 4vw;
+        }
+        .row-white .color-indicator { background-color: #e0e0e0; }
+        .row-blue .color-indicator { background-color: var(--blue-side); }
+
+        .fighter-info { flex-grow: 1; }
+
+        .score-display {
+            font-size: 16vw; 
+            font-weight: 900;
+            font-family: 'Arial Black', sans-serif;
+            min-width: 15vw;
+            text-align: center;
+            transition: font-size 0.2s;
+        }
+        .score-display.is-ippon-text {
+            font-size: 10vw;
+        }
+        .row-white .score-display { color: #000000; }
+        .row-blue .score-display { color: #ffffff; }
+
+        .shido-container {
+            display: flex;
+            gap: 1.5vw;
+            margin-right: 5vw;
+            width: 10vw;
+            justify-content: flex-end;
+        }
+        .shido-card {
+            width: 2.5vw;
+            height: 4.5vw;
+            background-color: var(--ijf-yellow);
+            border-radius: 4px;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .shido-card.active { display: block; }
+        
+        .hansoku-text {
+            color: #ff3333;
+            font-size: 3vw;
+            font-weight: 900;
+        }
+
+        .timer-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #050505;
+            padding: 0 5vw;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .category-tag {
+            font-size: 2.5vw;
+            font-weight: bold;
+            color: #28a745;
+            text-transform: uppercase;
+        }
+        .time-display {
+            font-size: 7.5vw; 
+            font-weight: 900;
+            color: #ffff00;
+            font-family: 'Arial Black', sans-serif;
+            line-height: 1;
+        }
+        .time-display.gs-active { color: #ff9900; }
+
+        .osaekomi-overlay {
+            position: absolute;
+            top: 35vh;
+            left: 5vw;
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            padding: 2vh 4vw;
+            font-weight: 900;
+            font-size: 4vw;
+            border-radius: 10px;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            display: none;
+        }
+        .osaekomi-overlay.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- ================= PANNEAU DE CONTROLE (PC) ================= -->
+    <div id="control-panel">
+        
+        <!-- Côté Blanc -->
+        <div class="fighter-control white-ctrl">
+            <h2 style="color: white; font-size: 2rem;">BLANC</h2>
+            <div class="btn-group">
+                <button class="btn-score btn-ippon" onclick="addScore('white', 'ippon')">IPPON</button>
+                <button class="btn-score btn-waza" onclick="addScore('white', 'waza')">WAZA-ARI</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn-score btn-shido" onclick="addPenalty('white', 1)">SHIDO</button>
+                <button class="btn-score btn-shido" style="background-color: darkred;" onclick="addPenalty('white', 3)">H-MAKE</button>
+            </div>
+            <button class="btn-timer" style="background-color: #555; padding: 15px 40px;" onclick="startOsaekomi('white')">Osaekomi Blanc</button>
+            <button class="btn-reset" onclick="resetFighter('white')">Reset Blanc</button>
+        </div>
+
+        <!-- Côté Bleu -->
+        <div class="fighter-control blue-ctrl">
+            <h2 style="color: white; font-size: 2rem;">BLEU</h2>
+            <div class="btn-group">
+                <button class="btn-score btn-ippon" onclick="addScore('blue', 'ippon')">IPPON</button>
+                <button class="btn-score btn-waza" onclick="addScore('blue', 'waza')">WAZA-ARI</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn-score btn-shido" onclick="addPenalty('blue', 1)">SHIDO</button>
+                <button class="btn-score btn-shido" style="background-color: darkred;" onclick="addPenalty('blue', 3)">H-MAKE</button>
+            </div>
+            <button class="btn-timer" style="background-color: #555; padding: 15px 40px;" onclick="startOsaekomi('blue')">Osaekomi Bleu</button>
+            <button class="btn-reset" onclick="resetFighter('blue')">Reset Bleu</button>
+        </div>
+
+        <!-- Temps et Général -->
+        <div id="timer-controls">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label for="age-select" style="font-weight: bold;">Durée du combat :</label>
+                <select id="age-select" class="select-age" onchange="changeCategoryTime()">
+                    <option value="120" data-label="POUSSINS">Poussins - 2 min</option>
+                    <option value="120" data-label="BENJAMINS">Benjamins - 2 min</option>
+                    <option value="180" data-label="MINIMES">Minimes - 3 min</option>
+                    <option value="240" data-label="CADETS">Cadets - 4 min</option>
+                    <option value="240" data-label="JUNIORS">Juniors - 4 min</option>
+                    <option value="240" data-label="SENIORS" selected>Seniors - 4 min</option>
+                </select>
+            </div>
+
+            <div id="pc-chrono">4:00</div>
+            
+            <div class="btn-group">
+                <button class="btn-timer" onclick="toggleTimer()">MARCHE / PAUSE (Espace)</button>
+                <button class="btn-timer btn-pause" onclick="stopOsaekomi()">TOKETA</button>
+                <button class="btn-timer" style="background-color: #ff9900;" onclick="toggleGoldenScore()">GOLDEN SCORE</button>
+                <button class="btn-reset" onclick="resetAll()">RESET TOUT</button>
+                <button class="btn-tv" onclick="openTVWindow()">Ouvrir l'écran TV 📺</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= PANNEAU D'AFFICHAGE (TV) ================= -->
+    <div id="tv-panel">
+        <div id="tv-osaekomi" class="osaekomi-overlay">OSAEKOMI : 00s</div>
+        
+        <!-- Ligne Blanc -->
+        <div class="fighter-row row-white">
+            <div class="color-indicator"></div>
+            <div class="fighter-info"></div>
+            <div class="shido-container" id="white-shido-box">
+                <div class="shido-card"></div>
+                <div class="shido-card"></div>
+            </div>
+            <div id="tv-white-score" class="score-display">0</div>
+        </div>
+
+        <!-- Ligne Bleu -->
+        <div class="fighter-row row-blue">
+            <div class="color-indicator"></div>
+            <div class="fighter-info"></div>
+            <div class="shido-container" id="blue-shido-box">
+                <div class="shido-card"></div>
+                <div class="shido-card"></div>
+            </div>
+            <div id="tv-blue-score" class="score-display">0</div>
+        </div>
+
+        <!-- Ligne Chrono / Infos du bas -->
+        <div class="timer-row">
+            <span class="category-tag" id="tv-meta">SENIORS</span>
+            <span class="time-display" id="tv-chrono">4:00</span>
+        </div>
+    </div>
+
+    <script>
+        let data = {
+            white: { ippon: 0, waza: 0, shido: 0, hansoku: false },
+            blue: { ippon: 0, waza: 0, shido: 0, hansoku: false },
+            mainTime: 240, 
+            defaultTime: 240,
+            categoryLabel: "SENIORS",
+            timerRunning: false,
+            isGoldenScore: false,
+            osaekomiFighter: null,
+            osaekomiTime: 0
+        };
+
+        let mainInterval, osaekomiInterval;
+        let tvWindow = null;
+
+        function changeCategoryTime() {
+            const select = document.getElementById('age-select');
+            const selectedOption = select.options[select.selectedIndex];
+            
+            data.defaultTime = parseInt(selectedOption.value);
+            data.categoryLabel = selectedOption.getAttribute('data-label');
+            
+            if (!data.timerRunning && !data.isGoldenScore) {
+                data.mainTime = data.defaultTime;
+                updateDOM();
+            }
+        }
+
+        function updateDOM() {
+            let mins = Math.floor(data.mainTime / 60).toString();
+            let secs = (data.mainTime % 60).toString().padStart(2, '0');
+            let timeString = `${mins}:${secs}`;
+            if(data.isGoldenScore) timeString += " GS";
+
+            document.getElementById('pc-chrono').innerText = timeString;
+
+            const targetDoc = tvWindow ? tvWindow.document : document;
+            
+            const whiteScoreEl = targetDoc.getElementById('tv-white-score');
+            const blueScoreEl = targetDoc.getElementById('tv-blue-score');
+
+            if (data.white.ippon) {
+                whiteScoreEl.innerText = 'IPPON';
+                whiteScoreEl.classList.add('is-ippon-text');
+            } else {
+                whiteScoreEl.innerText = data.white.waza;
+                whiteScoreEl.classList.remove('is-ippon-text');
+            }
+
+            if (data.blue.ippon) {
+                blueScoreEl.innerText = 'IPPON';
+                blueScoreEl.classList.add('is-ippon-text');
+            } else {
+                blueScoreEl.innerText = data.blue.waza;
+                blueScoreEl.classList.remove('is-ippon-text');
+            }
+
+            renderShidos(targetDoc, 'white');
+            renderShidos(targetDoc, 'blue');
+
+            const chronoEl = targetDoc.getElementById('tv-chrono');
+            const metaEl = targetDoc.getElementById('tv-meta');
+            
+            chronoEl.innerText = `${mins}:${secs}`;
+            
+            if (data.isGoldenScore) {
+                chronoEl.classList.add('gs-active');
+                metaEl.innerText = "GOLDEN SCORE";
+                metaEl.style.color = "#ff9900";
+            } else {
+                chronoEl.classList.remove('gs-active');
+                metaEl.innerText = data.categoryLabel;
+                metaEl.style.color = "#28a745";
+            }
+
+            const oDiv = targetDoc.getElementById('tv-osaekomi');
+            if(data.osaekomiFighter) {
+                oDiv.classList.add('active');
+                let couleur = data.osaekomiFighter === 'white' ? 'BLANC' : 'BLEU';
+                oDiv.innerText = `OSAEKOMI ${couleur} : ${data.osaekomiTime}s`;
+                oDiv.style.background = data.osaekomiFighter === 'white' ? 'rgba(255,255,255,0.95)' : 'rgba(0,34,170,0.95)';
+                oDiv.style.color = data.osaekomiFighter === 'white' ? 'black' : 'white';
+            } else {
+                oDiv.classList.remove('active');
+            }
+        }
+
+        function renderShidos(doc, fighter) {
+            const container = doc.getElementById(`${fighter}-shido-box`);
+            if (data[fighter].hansoku) {
+                container.innerHTML = '<span class="hansoku-text">H-MAKE</span>';
+            } else {
+                container.innerHTML = '<div class="shido-card"></div><div class="shido-card"></div>';
+                const cards = container.querySelectorAll('.shido-card');
+                for (let i = 0; i < data[fighter].shido; i++) {
+                    if(cards[i]) cards[i].classList.add('active');
+                }
+            }
+        }
+
+        function forceStopChrono() {
+            if(data.timerRunning) {
+                clearInterval(mainInterval);
+                clearInterval(osaekomiInterval);
+                data.timerRunning = false;
+            }
+        }
+
+        function addScore(fighter, type) {
+            if(type === 'ippon') {
+                data[fighter].ippon = 1;
+                forceStopChrono(); 
+            }
+            if(type === 'waza') data[fighter].waza += 1;
+            if(data[fighter].waza >= 2) {
+                data[fighter].ippon = 1;
+                forceStopChrono(); 
+            }
+            updateDOM();
+        }
+
+        function addPenalty(fighter, amount) {
+            if (amount === 3) {
+                data[fighter].hansoku = true;
+                forceStopChrono(); 
+            } else {
+                data[fighter].shido += amount;
+                if(data[fighter].shido >= 3) {
+                    data[fighter].hansoku = true;
+                    forceStopChrono();
+                }
+            }
+            updateDOM();
+        }
+
+        function toggleTimer() {
+            if(data.timerRunning) {
+                clearInterval(mainInterval);
+                clearInterval(osaekomiInterval);
+                data.timerRunning = false;
+            } else {
+                if(data.white.ippon || data.blue.ippon || data.white.hansoku || data.blue.hansoku) return;
+                
+                data.timerRunning = true;
+                mainInterval = setInterval(() => {
+                    if(data.isGoldenScore) {
+                        data.mainTime++; 
+                    } else {
+                        if(data.mainTime > 0) data.mainTime--;
+                        else toggleTimer();
+                    }
+                    updateDOM();
+                }, 1000);
+
+                if(data.osaekomiFighter) resumeOsaekomi();
+            }
+        }
+
+        function toggleGoldenScore() {
+            data.isGoldenScore = !data.isGoldenScore;
+            data.mainTime = data.isGoldenScore ? 0 : data.defaultTime;
+            updateDOM();
+        }
+
+        function startOsaekomi(fighter) {
+            if(data.white.ippon || data.blue.ippon) return;
+            if(!data.timerRunning) toggleTimer();
+            clearInterval(osaekomiInterval);
+            data.osaekomiFighter = fighter;
+            data.osaekomiTime = 0;
+            resumeOsaekomi();
+        }
+
+        function resumeOsaekomi() {
+            osaekomiInterval = setInterval(() => {
+                data.osaekomiTime++;
+                if(data.osaekomiTime === 10) addScore(data.osaekomiFighter, 'waza');
+                if(data.osaekomiTime === 20) {
+                    addScore(data.osaekomiFighter, 'ippon');
+                    stopOsaekomi();
+                }
+                updateDOM();
+            }, 1000);
+        }
+
+        function stopOsaekomi() {
+            clearInterval(osaekomiInterval);
+            data.osaekomiFighter = null;
+            data.osaekomiTime = 0;
+            updateDOM();
+        }
+
+        function resetFighter(fighter) {
+            data[fighter].ippon = 0;
+            data[fighter].waza = 0;
+            data[fighter].shido = 0;
+            data[fighter].hansoku = false;
+            updateDOM();
+        }
+
+        function resetAll() {
+            clearInterval(mainInterval);
+            clearInterval(osaekomiInterval);
+            data.mainTime = data.defaultTime;
+            data.timerRunning = false;
+            data.isGoldenScore = false;
+            data.osaekomiFighter = null;
+            data.osaekomiTime = 0;
+            resetFighter('white');
+            resetFighter('blue');
+        }
+
+        function openTVWindow() {
+            tvWindow = window.open("", "JudoTV", "width=1920,height=1080");
+            tvWindow.document.write(`
+                <html>
+                <head>
+                    <title>Écran TV Judo - Officiel</title>
+                    <style>${document.querySelector('style').innerHTML}</style>
+                </head>
+                <body class="tv-active">
+                    ${document.getElementById('tv-panel').outerHTML}
+                </body>
+                </html>
+            `);
+            tvWindow.document.close();
+            setTimeout(updateDOM, 200);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(e.code === "Space") {
+                e.preventDefault();
+                toggleTimer();
+            }
+        });
+
+        updateDOM();
+    </script>
+</body>
+</html>
