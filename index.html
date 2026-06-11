@@ -2,14 +2,18 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tableau d'affichage Judo - Officiel Plein Écran</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Chrono Judo Synchronisé</title>
+    <!-- Inclusion de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         :root {
             --bg-color: #000000;
             --white-side: #ffffff;
             --blue-side: #0022aa;
             --ijf-yellow: #ffdf00;
+            --ijf-red: #cc0000;
         }
 
         body {
@@ -19,9 +23,12 @@
             color: white;
             overflow: hidden;
             user-select: none;
+            -webkit-user-select: none;
+            height: 100vh;
+            width: 100vw;
         }
 
-        /* --- MODE CONTROLE (PC) --- */
+        /* --- PANNEAU DE CONTROLE --- */
         #control-panel {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -50,12 +57,12 @@
             cursor: pointer;
             font-weight: bold;
             border: none;
-            border-radius: 5px;
-            transition: transform 0.1s;
+            border-radius: 8px;
+            font-size: 1.2rem;
         }
         button:active { transform: scale(0.95); }
 
-        .btn-score { padding: 20px 30px; font-size: 1.4rem; }
+        .btn-score { padding: 25px 35px; font-size: 1.6rem; }
         .btn-ippon { background-color: var(--ijf-yellow); color: black; }
         .btn-waza { background-color: #ff9900; color: white; }
         .btn-shido { background-color: #cc0000; color: white; }
@@ -70,34 +77,32 @@
             align-items: center;
             gap: 12px;
             border-radius: 10px;
-            padding: 10px;
+            padding: 15px;
         }
 
         .select-age {
-            padding: 10px 20px;
-            font-size: 1.1rem;
+            padding: 12px 24px;
             background-color: #333;
             color: white;
             border: 2px solid #555;
-            border-radius: 5px;
         }
 
         #pc-chrono {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: bold;
             color: #ffff00;
             font-family: monospace;
             background: #000;
-            padding: 5px 30px;
+            padding: 5px 40px;
             border-radius: 8px;
             border: 2px solid #444;
         }
 
-        .btn-timer { padding: 12px 30px; font-size: 1.3rem; background-color: #28a745; color: white;}
+        .btn-timer { padding: 15px 35px; font-size: 1.4rem; background-color: #28a745; color: white;}
         .btn-pause { background-color: #dc3545; }
-        .btn-tv { background-color: #17a2b8; }
+        .btn-view-mode { background-color: #6f42c1; color: white; font-size: 1.2rem; padding: 10px 20px; width: 80%; max-width: 300px; margin-top: 5px;}
 
-        /* --- MODE TV (PLEIN ÉCRAN) --- */
+        /* --- MODE TV (PLEIN ÉCRAN DISTANT) --- */
         #tv-panel {
             display: none; 
             position: fixed;
@@ -105,10 +110,11 @@
             background-color: var(--bg-color);
             grid-template-rows: 42fr 42fr 16fr;
             box-sizing: border-box;
+            z-index: 999;
         }
 
-        .tv-active #tv-panel { display: grid; }
-        .tv-active #control-panel { display: none; }
+        body.tv-mode-active #tv-panel { display: grid; }
+        body.tv-mode-active #control-panel { display: none; }
 
         .fighter-row {
             display: flex;
@@ -117,113 +123,49 @@
             padding: 0 5vw;
         }
         
-        .row-white { 
-            background-color: #ffffff; 
-            border-bottom: 2px solid #ddd; 
-        }
-        
-        .row-blue { 
-            background-color: #000d26; 
-            border-bottom: 2px solid #111; 
-        }
+        .row-white { background-color: #ffffff; border-bottom: 2px solid #ddd; }
+        .row-blue { background-color: #000d26; border-bottom: 2px solid #111; }
 
-        .color-indicator {
-            width: 4vw;
-            height: 50%;
-            border-radius: 8px;
-            margin-right: 4vw;
-        }
+        .color-indicator { width: 4vw; height: 50%; border-radius: 8px; margin-right: 4vw; }
         .row-white .color-indicator { background-color: #e0e0e0; }
         .row-blue .color-indicator { background-color: var(--blue-side); }
-
         .fighter-info { flex-grow: 1; }
 
-        .score-display {
-            font-size: 16vw; 
-            font-weight: 900;
-            font-family: 'Arial Black', sans-serif;
-            min-width: 15vw;
-            text-align: center;
-            transition: font-size 0.2s;
-        }
-        .score-display.is-ippon-text {
-            font-size: 10vw;
-        }
+        .score-display { font-size: 16vw; font-weight: 900; font-family: 'Arial Black', sans-serif; min-width: 15vw; text-align: center; }
+        .score-display.is-ippon-text { font-size: 10vw; }
         .row-white .score-display { color: #000000; }
         .row-blue .score-display { color: #ffffff; }
 
-        .shido-container {
-            display: flex;
-            gap: 1.5vw;
-            margin-right: 5vw;
-            width: 10vw;
-            justify-content: flex-end;
-        }
-        .shido-card {
-            width: 2.5vw;
-            height: 4.5vw;
-            background-color: var(--ijf-yellow);
-            border-radius: 4px;
-            display: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
+        .shido-container { display: flex; gap: 1.5vw; margin-right: 5vw; width: 12vw; justify-content: flex-end; align-items: center; }
+        .shido-card { width: 2.5vw; height: 4.5vw; background-color: var(--ijf-yellow); border-radius: 4px; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .shido-card.active { display: block; }
         
-        .hansoku-text {
-            color: #ff3333;
-            font-size: 3vw;
-            font-weight: 900;
-        }
+        .red-card { width: 3.5vw; height: 6vw; background-color: var(--ijf-red); border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); animation: blink 0.8s infinite alternate; }
+        @keyframes blink { from { opacity: 1; } to { opacity: 0.6; } }
 
-        .timer-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background-color: #050505;
-            padding: 0 5vw;
-            height: 100%;
-            box-sizing: border-box;
-        }
-        .category-tag {
-            font-size: 2.5vw;
-            font-weight: bold;
-            color: #28a745;
-            text-transform: uppercase;
-        }
-        .time-display {
-            font-size: 7.5vw; 
-            font-weight: 900;
-            color: #ffff00;
-            font-family: 'Arial Black', sans-serif;
-            line-height: 1;
-        }
+        .timer-row { display: flex; align-items: center; justify-content: space-between; background-color: #050505; padding: 0 5vw; height: 100%; box-sizing: border-box; }
+        .category-tag { font-size: 2.5vw; font-weight: bold; color: #28a745; text-transform: uppercase; }
+        .time-display { font-size: 7.5vw; font-weight: 900; color: #ffff00; font-family: 'Arial Black', sans-serif; line-height: 1; }
         .time-display.gs-active { color: #ff9900; }
 
-        .osaekomi-overlay {
-            position: absolute;
-            top: 35vh;
-            left: 5vw;
-            background: rgba(255, 0, 0, 0.9);
-            color: white;
-            padding: 2vh 4vw;
-            font-weight: 900;
-            font-size: 4vw;
-            border-radius: 10px;
-            z-index: 10;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-            display: none;
-        }
-        .osaekomi-overlay.active { display: block; }
+        /* Osaekomi */
+        .osaekomi-container { position: absolute; bottom: 5vh; left: 5vw; width: 40vw; display: none; flex-direction: column; gap: 5px; z-index: 10; }
+        .osaekomi-container.active { display: flex; }
+        .osaekomi-label { font-weight: 900; font-size: 2.2vw; text-transform: uppercase; }
+        .row-white .osaekomi-label { color: #000000; }
+        .row-blue .osaekomi-label { color: #ffffff; }
+        .progress-bg { width: 100%; height: 3vh; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 5px; overflow: hidden; }
+        .row-white .progress-bg { border-color: rgba(0,0,0,0.4); }
+        .progress-bar { width: 0%; height: 100%; background: #ff9900; transition: width 0.2s linear, background-color 0.3s; }
+        .progress-bar.ippon-reach { background: #28a745; }
     </style>
 </head>
 <body>
 
-    <!-- ================= PANNEAU DE CONTROLE (PC) ================= -->
+    <!-- ================= PANNEAU DE CONTROLE ================= -->
     <div id="control-panel">
-        
-        <!-- Côté Blanc -->
         <div class="fighter-control white-ctrl">
-            <h2 style="color: white; font-size: 2rem;">BLANC</h2>
+            <h2 style="color: white; font-size: 2rem; margin: 0;">BLANC</h2>
             <div class="btn-group">
                 <button class="btn-score btn-ippon" onclick="addScore('white', 'ippon')">IPPON</button>
                 <button class="btn-score btn-waza" onclick="addScore('white', 'waza')">WAZA-ARI</button>
@@ -236,9 +178,8 @@
             <button class="btn-reset" onclick="resetFighter('white')">Reset Blanc</button>
         </div>
 
-        <!-- Côté Bleu -->
         <div class="fighter-control blue-ctrl">
-            <h2 style="color: white; font-size: 2rem;">BLEU</h2>
+            <h2 style="color: white; font-size: 2rem; margin: 0;">BLEU</h2>
             <div class="btn-group">
                 <button class="btn-score btn-ippon" onclick="addScore('blue', 'ippon')">IPPON</button>
                 <button class="btn-score btn-waza" onclick="addScore('blue', 'waza')">WAZA-ARI</button>
@@ -251,10 +192,9 @@
             <button class="btn-reset" onclick="resetFighter('blue')">Reset Bleu</button>
         </div>
 
-        <!-- Temps et Général -->
         <div id="timer-controls">
             <div style="display: flex; gap: 10px; align-items: center;">
-                <label for="age-select" style="font-weight: bold;">Durée du combat :</label>
+                <label style="font-weight: bold;">Catégorie :</label>
                 <select id="age-select" class="select-age" onchange="changeCategoryTime()">
                     <option value="120" data-label="POUSSINS">Poussins - 2 min</option>
                     <option value="120" data-label="BENJAMINS">Benjamins - 2 min</option>
@@ -267,43 +207,40 @@
 
             <div id="pc-chrono">4:00</div>
             
-            <div class="btn-group">
-                <button class="btn-timer" onclick="toggleTimer()">MARCHE / PAUSE (Espace)</button>
+            <div class="btn-group" style="flex-wrap: wrap; justify-content: center;">
+                <button class="btn-timer" onclick="toggleTimer()">MARCHE / PAUSE</button>
                 <button class="btn-timer btn-pause" onclick="stopOsaekomi()">TOKETA</button>
                 <button class="btn-timer" style="background-color: #ff9900;" onclick="toggleGoldenScore()">GOLDEN SCORE</button>
                 <button class="btn-reset" onclick="resetAll()">RESET TOUT</button>
-                <button class="btn-tv" onclick="openTVWindow()">Ouvrir l'écran TV 📺</button>
             </div>
+            <button class="btn-view-mode" onclick="switchToTVModeOnly()">Passer cet écran en Mode TV 📺</button>
         </div>
     </div>
 
-    <!-- ================= PANNEAU D'AFFICHAGE (TV) ================= -->
+    <!-- ================= PANNEAU D'AFFICHAGE TV ================= -->
     <div id="tv-panel">
-        <div id="tv-osaekomi" class="osaekomi-overlay">OSAEKOMI : 00s</div>
-        
-        <!-- Ligne Blanc -->
         <div class="fighter-row row-white">
             <div class="color-indicator"></div>
             <div class="fighter-info"></div>
-            <div class="shido-container" id="white-shido-box">
-                <div class="shido-card"></div>
-                <div class="shido-card"></div>
+            <div class="osaekomi-container" id="white-osaekomi-container">
+                <div class="osaekomi-label" id="white-osaekomi-text">OSAEKOMI : 0s</div>
+                <div class="progress-bg"><div class="progress-bar" id="white-progress-bar"></div></div>
             </div>
+            <div class="shido-container" id="white-shido-box"><div class="shido-card"></div><div class="shido-card"></div></div>
             <div id="tv-white-score" class="score-display">0</div>
         </div>
 
-        <!-- Ligne Bleu -->
         <div class="fighter-row row-blue">
             <div class="color-indicator"></div>
             <div class="fighter-info"></div>
-            <div class="shido-container" id="blue-shido-box">
-                <div class="shido-card"></div>
-                <div class="shido-card"></div>
+            <div class="osaekomi-container" id="blue-osaekomi-container">
+                <div class="osaekomi-label" id="blue-osaekomi-text">OSAEKOMI : 0s</div>
+                <div class="progress-bg"><div class="progress-bar" id="blue-progress-bar"></div></div>
             </div>
+            <div class="shido-container" id="blue-shido-box"><div class="shido-card"></div><div class="shido-card"></div></div>
             <div id="tv-blue-score" class="score-display">0</div>
         </div>
 
-        <!-- Ligne Chrono / Infos du bas -->
         <div class="timer-row">
             <span class="category-tag" id="tv-meta">SENIORS</span>
             <span class="time-display" id="tv-chrono">4:00</span>
@@ -311,243 +248,207 @@
     </div>
 
     <script>
+        // ================= CONFIGURATION FIREBASE =================
+        // REMPLACEZ L'URL CI-DESSOUS PAR VOTRE PROPRE URL OBTENUE SUR FIREBASE
+        const firebaseConfig = {
+            databaseURL: https://chrono-judo-eab79-default-rtdb.firebaseio.com/ 
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database().ref("tatami1");
+
+        // Structure locale de base
         let data = {
             white: { ippon: 0, waza: 0, shido: 0, hansoku: false },
             blue: { ippon: 0, waza: 0, shido: 0, hansoku: false },
-            mainTime: 240, 
-            defaultTime: 240,
-            categoryLabel: "SENIORS",
-            timerRunning: false,
-            isGoldenScore: false,
-            osaekomiFighter: null,
-            osaekomiTime: 0
+            mainTime: 240, defaultTime: 240, categoryLabel: "SENIORS",
+            timerRunning: false, isGoldenScore: false, osaekomiFighter: null, osaekomiTime: 0
         };
 
         let mainInterval, osaekomiInterval;
-        let tvWindow = null;
+        let isTVModeDevice = false;
 
-        function changeCategoryTime() {
-            const select = document.getElementById('age-select');
-            const selectedOption = select.options[select.selectedIndex];
-            
-            data.defaultTime = parseInt(selectedOption.value);
-            data.categoryLabel = selectedOption.getAttribute('data-label');
-            
-            if (!data.timerRunning && !data.isGoldenScore) {
-                data.mainTime = data.defaultTime;
+        // Écouter les changements de la base de données en temps réel
+        db.on("value", (snapshot) => {
+            const firebaseData = snapshot.val();
+            if (firebaseData) {
+                // Synchroniser les variables avec la base
+                data = firebaseData;
                 updateDOM();
-            }
-        }
-
-        function updateDOM() {
-            let mins = Math.floor(data.mainTime / 60).toString();
-            let secs = (data.mainTime % 60).toString().padStart(2, '0');
-            let timeString = `${mins}:${secs}`;
-            if(data.isGoldenScore) timeString += " GS";
-
-            document.getElementById('pc-chrono').innerText = timeString;
-
-            const targetDoc = tvWindow ? tvWindow.document : document;
-            
-            const whiteScoreEl = targetDoc.getElementById('tv-white-score');
-            const blueScoreEl = targetDoc.getElementById('tv-blue-score');
-
-            if (data.white.ippon) {
-                whiteScoreEl.innerText = 'IPPON';
-                whiteScoreEl.classList.add('is-ippon-text');
-            } else {
-                whiteScoreEl.innerText = data.white.waza;
-                whiteScoreEl.classList.remove('is-ippon-text');
-            }
-
-            if (data.blue.ippon) {
-                blueScoreEl.innerText = 'IPPON';
-                blueScoreEl.classList.add('is-ippon-text');
-            } else {
-                blueScoreEl.innerText = data.blue.waza;
-                blueScoreEl.classList.remove('is-ippon-text');
-            }
-
-            renderShidos(targetDoc, 'white');
-            renderShidos(targetDoc, 'blue');
-
-            const chronoEl = targetDoc.getElementById('tv-chrono');
-            const metaEl = targetDoc.getElementById('tv-meta');
-            
-            chronoEl.innerText = `${mins}:${secs}`;
-            
-            if (data.isGoldenScore) {
-                chronoEl.classList.add('gs-active');
-                metaEl.innerText = "GOLDEN SCORE";
-                metaEl.style.color = "#ff9900";
-            } else {
-                chronoEl.classList.remove('gs-active');
-                metaEl.innerText = data.categoryLabel;
-                metaEl.style.color = "#28a745";
-            }
-
-            const oDiv = targetDoc.getElementById('tv-osaekomi');
-            if(data.osaekomiFighter) {
-                oDiv.classList.add('active');
-                let couleur = data.osaekomiFighter === 'white' ? 'BLANC' : 'BLEU';
-                oDiv.innerText = `OSAEKOMI ${couleur} : ${data.osaekomiTime}s`;
-                oDiv.style.background = data.osaekomiFighter === 'white' ? 'rgba(255,255,255,0.95)' : 'rgba(0,34,170,0.95)';
-                oDiv.style.color = data.osaekomiFighter === 'white' ? 'black' : 'white';
-            } else {
-                oDiv.classList.remove('active');
-            }
-        }
-
-        function renderShidos(doc, fighter) {
-            const container = doc.getElementById(`${fighter}-shido-box`);
-            if (data[fighter].hansoku) {
-                container.innerHTML = '<span class="hansoku-text">H-MAKE</span>';
-            } else {
-                container.innerHTML = '<div class="shido-card"></div><div class="shido-card"></div>';
-                const cards = container.querySelectorAll('.shido-card');
-                for (let i = 0; i < data[fighter].shido; i++) {
-                    if(cards[i]) cards[i].classList.add('active');
-                }
-            }
-        }
-
-        function forceStopChrono() {
-            if(data.timerRunning) {
-                clearInterval(mainInterval);
-                clearInterval(osaekomiInterval);
-                data.timerRunning = false;
-            }
-        }
-
-        function addScore(fighter, type) {
-            if(type === 'ippon') {
-                data[fighter].ippon = 1;
-                forceStopChrono(); 
-            }
-            if(type === 'waza') data[fighter].waza += 1;
-            if(data[fighter].waza >= 2) {
-                data[fighter].ippon = 1;
-                forceStopChrono(); 
-            }
-            updateDOM();
-        }
-
-        function addPenalty(fighter, amount) {
-            if (amount === 3) {
-                data[fighter].hansoku = true;
-                forceStopChrono(); 
-            } else {
-                data[fighter].shido += amount;
-                if(data[fighter].shido >= 3) {
-                    data[fighter].hansoku = true;
-                    forceStopChrono();
-                }
-            }
-            updateDOM();
-        }
-
-        function toggleTimer() {
-            if(data.timerRunning) {
-                clearInterval(mainInterval);
-                clearInterval(osaekomiInterval);
-                data.timerRunning = false;
-            } else {
-                if(data.white.ippon || data.blue.ippon || data.white.hansoku || data.blue.hansoku) return;
                 
-                data.timerRunning = true;
-                mainInterval = setInterval(() => {
-                    if(data.isGoldenScore) {
-                        data.mainTime++; 
-                    } else {
-                        if(data.mainTime > 0) data.mainTime--;
-                        else toggleTimer();
-                    }
-                    updateDOM();
-                }, 1000);
-
-                if(data.osaekomiFighter) resumeOsaekomi();
-            }
-        }
-
-        function toggleGoldenScore() {
-            data.isGoldenScore = !data.isGoldenScore;
-            data.mainTime = data.isGoldenScore ? 0 : data.defaultTime;
-            updateDOM();
-        }
-
-        function startOsaekomi(fighter) {
-            if(data.white.ippon || data.blue.ippon) return;
-            if(!data.timerRunning) toggleTimer();
-            clearInterval(osaekomiInterval);
-            data.osaekomiFighter = fighter;
-            data.osaekomiTime = 0;
-            resumeOsaekomi();
-        }
-
-        function resumeOsaekomi() {
-            osaekomiInterval = setInterval(() => {
-                data.osaekomiTime++;
-                if(data.osaekomiTime === 10) addScore(data.osaekomiFighter, 'waza');
-                if(data.osaekomiTime === 20) {
-                    addScore(data.osaekomiFighter, 'ippon');
-                    stopOsaekomi();
-                }
-                updateDOM();
-            }, 1000);
-        }
-
-        function stopOsaekomi() {
-            clearInterval(osaekomiInterval);
-            data.osaekomiFighter = null;
-            data.osaekomiTime = 0;
-            updateDOM();
-        }
-
-        function resetFighter(fighter) {
-            data[fighter].ippon = 0;
-            data[fighter].waza = 0;
-            data[fighter].shido = 0;
-            data[fighter].hansoku = false;
-            updateDOM();
-        }
-
-        function resetAll() {
-            clearInterval(mainInterval);
-            clearInterval(osaekomiInterval);
-            data.mainTime = data.defaultTime;
-            data.timerRunning = false;
-            data.isGoldenScore = false;
-            data.osaekomiFighter = null;
-            data.osaekomiTime = 0;
-            resetFighter('white');
-            resetFighter('blue');
-        }
-
-        function openTVWindow() {
-            tvWindow = window.open("", "JudoTV", "width=1920,height=1080");
-            tvWindow.document.write(`
-                <html>
-                <head>
-                    <title>Écran TV Judo - Officiel</title>
-                    <style>${document.querySelector('style').innerHTML}</style>
-                </head>
-                <body class="tv-active">
-                    ${document.getElementById('tv-panel').outerHTML}
-                </body>
-                </html>
-            `);
-            tvWindow.document.close();
-            setTimeout(updateDOM, 200);
-        }
-
-        window.addEventListener('keydown', (e) => {
-            if(e.code === "Space") {
-                e.preventDefault();
-                toggleTimer();
+                // Gérer le déclenchement local des chronos basé sur l'état Firebase
+                manageLocalIntervals();
             }
         });
 
-        updateDOM();
+        // Envoyer les mises à jour à Firebase
+        function syncToFirebase() {
+            db.set(data);
+        }
+
+        function manageLocalIntervals() {
+            // Chrono Principal
+            if (data.timerRunning && !mainInterval) {
+                mainInterval = setInterval(() => {
+                    // Seul l'appareil de CONTROLE fait avancer le temps pour éviter les doubles sauts
+                    if (!isTVModeDevice) {
+                        if(data.isGoldenScore) data.mainTime++;
+                        else { if(data.mainTime > 0) data.mainTime--; else data.timerRunning = false; }
+                        syncToFirebase();
+                    }
+                }, 1000);
+            } else if (!data.timerRunning && mainInterval) {
+                clearInterval(mainInterval);
+                mainInterval = null;
+            }
+
+            // Chrono Osaekomi
+            if (data.osaekomiFighter && !osaekomiInterval && data.timerRunning) {
+                osaekomiInterval = setInterval(() => {
+                    if (!isTVModeDevice) {
+                        data.osaekomiTime++;
+                        if(data.osaekomiTime === 10) addScore(data.osaekomiFighter, 'waza');
+                        if(data.osaekomiTime === 20) { addScore(data.osaekomiFighter, 'ippon'); data.osaekomiFighter = null; data.osaekomiTime = 0; }
+                        syncToFirebase();
+                    }
+                }, 1000);
+            } else if ((!data.osaekomiFighter || !data.timerRunning) && osaekomiInterval) {
+                clearInterval(osaekomiInterval);
+                osaekomiInterval = null;
+            }
+        }
+
+        // --- Fonctions d'actions de match ---
+        function changeCategoryTime() {
+            if (isTVModeDevice) return;
+            const select = document.getElementById('age-select');
+            const selectedOption = select.options[select.selectedIndex];
+            data.defaultTime = parseInt(selectedOption.value);
+            data.categoryLabel = selectedOption.getAttribute('data-label');
+            if (!data.timerRunning && !data.isGoldenScore) { data.mainTime = data.defaultTime; }
+            syncToFirebase();
+        }
+
+        function addScore(fighter, type) {
+            if (isTVModeDevice) return;
+            if(type === 'ippon') { data[fighter].ippon = 1; data.timerRunning = false; }
+            if(type === 'waza') data[fighter].waza += 1;
+            if(data[fighter].waza >= 2) { data[fighter].ippon = 1; data.timerRunning = false; }
+            syncToFirebase();
+        }
+
+        function addPenalty(fighter, amount) {
+            if (isTVModeDevice) return;
+            if (amount === 3) { data[fighter].hansoku = true; data.timerRunning = false; }
+            else { data[fighter].shido += amount; if(data[fighter].shido >= 3) { data[fighter].hansoku = true; data.timerRunning = false; } }
+            syncToFirebase();
+        }
+
+        function toggleTimer() {
+            if (isTVModeDevice) return;
+            if(!data.timerRunning && (data.white.ippon || data.blue.ippon || data.white.hansoku || data.blue.hansoku)) return;
+            data.timerRunning = !data.timerRunning;
+            syncToFirebase();
+        }
+
+        function toggleGoldenScore() {
+            if (isTVModeDevice) return;
+            data.isGoldenScore = !data.isGoldenScore;
+            data.mainTime = data.isGoldenScore ? 0 : data.defaultTime;
+            syncToFirebase();
+        }
+
+        function startOsaekomi(fighter) {
+            if (isTVModeDevice) return;
+            if(data.white.ippon || data.blue.ippon) return;
+            data.osaekomiFighter = fighter;
+            data.osaekomiTime = 0;
+            data.timerRunning = true;
+            syncToFirebase();
+        }
+
+        function stopOsaekomi() {
+            if (isTVModeDevice) return;
+            data.osaekomiFighter = null;
+            data.osaekomiTime = 0;
+            syncToFirebase();
+        }
+
+        function resetFighter(fighter) {
+            if (isTVModeDevice) return;
+            data[fighter].ippon = 0; data[fighter].waza = 0; data[fighter].shido = 0; data[fighter].hansoku = false;
+            syncToFirebase();
+        }
+
+        function resetAll() {
+            if (isTVModeDevice) return;
+            data.mainTime = data.defaultTime; data.timerRunning = false; data.isGoldenScore = false; data.osaekomiFighter = null; data.osaekomiTime = 0;
+            data.white = { ippon: 0, waza: 0, shido: 0, hansoku: false };
+            data.blue = { ippon: 0, waza: 0, shido: 0, hansoku: false };
+            syncToFirebase();
+        }
+
+        // --- Mise à jour visuelle (Identique sur les deux écrans) ---
+        function updateDOM() {
+            let mins = Math.floor(data.mainTime / 60).toString();
+            let secs = (data.mainTime % 60).toString().padStart(2, '0');
+            
+            document.getElementById('pc-chrono').innerText = `${mins}:${secs}${data.isGoldenScore ? " GS" : ""}`;
+
+            const wScore = document.getElementById('tv-white-score');
+            const bScore = document.getElementById('tv-blue-score');
+
+            if (data.white.ippon) { wScore.innerText = 'IPPON'; wScore.classList.add('is-ippon-text'); }
+            else { wScore.innerText = data.white.waza; wScore.classList.remove('is-ippon-text'); }
+
+            if (data.blue.ippon) { bScore.innerText = 'IPPON'; bScore.classList.add('is-ippon-text'); }
+            else { bScore.innerText = data.blue.waza; bScore.classList.remove('is-ippon-text'); }
+
+            renderShidos('white'); renderShidos('blue');
+            document.getElementById('tv-chrono').innerText = `${mins}:${secs}`;
+            const metaEl = document.getElementById('tv-meta');
+            
+            if (data.isGoldenScore) {
+                document.getElementById('tv-chrono').classList.add('gs-active');
+                metaEl.innerText = "GOLDEN SCORE"; metaEl.style.color = "#ff9900";
+            } else {
+                document.getElementById('tv-chrono').classList.remove('gs-active');
+                metaEl.innerText = data.categoryLabel; metaEl.style.color = "#28a745";
+            }
+            manageOsaekomiDOM('white'); manageOsaekomiDOM('blue');
+        }
+
+        function manageOsaekomiDOM(fighter) {
+            const container = document.getElementById(`${fighter}-osaekomi-container`);
+            const label = document.getElementById(`${fighter}-osaekomi-text`);
+            const bar = document.getElementById(`${fighter}-progress-bar`);
+            if (data.osaekomiFighter === fighter) {
+                container.classList.add('active');
+                label.innerText = `OSAEKOMI : ${data.osaekomiTime}s`;
+                let percentage = (data.osaekomiTime / 20) * 100;
+                bar.style.width = `${Math.min(percentage, 100)}%`;
+                if (data.osaekomiTime >= 10) bar.classList.add('ippon-reach');
+                else bar.classList.remove('ippon-reach');
+            } else { container.classList.remove('active'); bar.style.width = '0%'; bar.classList.remove('ippon-reach'); }
+        }
+
+        function renderShidos(fighter) {
+            const container = document.getElementById(`${fighter}-shido-box`);
+            if (data[fighter].hansoku) { container.innerHTML = '<div class="red-card"></div>'; }
+            else {
+                container.innerHTML = '<div class="shido-card"></div><div class="shido-card"></div>';
+                const cards = container.querySelectorAll('.shido-card');
+                for (let i = 0; i < data[fighter].shido; i++) { if(cards[i]) cards[i].classList.add('active'); }
+            }
+        }
+
+        // Activer le mode TV uniquement pour l'ordinateur de la télé
+        function switchToTVModeOnly() {
+            isTVModeDevice = true;
+            document.body.classList.add('tv-mode-active');
+        }
+
+        window.addEventListener('keydown', (e) => { if(e.code === "Space") { e.preventDefault(); toggleTimer(); } });
     </script>
 </body>
 </html>
